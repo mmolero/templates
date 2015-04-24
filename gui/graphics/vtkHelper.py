@@ -4,52 +4,52 @@
 
 import numpy as np
 from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
-from vtk import vtkPoints, vtkCellArray, vtkUnsignedCharArray, vtkPolyData, vtkPolyDataMapper, vtkActor
-
+from vtk.util.numpy_support import get_numpy_array_type, create_vtk_array, get_vtk_array_type, numpy_to_vtkIdTypeArray
+from vtk.util.numpy_support import get_vtk_to_numpy_typemap
+from vtk import vtkPoints, vtkCellArray, vtkIdTypeArray, vtkUnsignedCharArray, vtkPolyData, vtkPolyDataMapper, vtkActor
+from vtk import VTK_POINTS, VTK_FLOAT, VTK_CHAR, VTK_UNSIGNED_CHAR
 
 def polydata_from_numpy(coords, color):
     """
-
     :param coords:
     :param color:
     :return:
     """
 
+    Npts, Ndim = np.shape(coords)
+
     Points = vtkPoints()
-    Vertices = vtkCellArray()
-    Colors = vtkUnsignedCharArray()
-    Colors.SetName("colors")
-    Colors.SetNumberOfComponents(3)
+    ntype = get_numpy_array_type(Points.GetDataType())
+    coords_vtk = numpy_to_vtk(np.asarray(coords, order='C',dtype=ntype), deep=1)
+    Points.SetNumberOfPoints(Npts)
+    Points.SetData(coords_vtk)
 
-    def append_coords(item):
-        id = Points.InsertNextPoint(item[0], item[1], item[2])
-        Vertices.InsertNextCell(1)
-        Vertices.InsertCellPoint(id)
+    Cells = vtkCellArray()
+    ids = np.arange(0,Npts, dtype=np.int64).reshape(-1,1)
+    IDS = np.concatenate([np.ones(Npts, dtype=np.int64).reshape(-1,1), ids],axis=1)
+    ids_vtk = numpy_to_vtkIdTypeArray(IDS, deep=True)
 
-    def append_color(item):
-        Colors.InsertNextTuple3(item[0], item[1], item[2])
-
+    Cells.SetNumberOfCells(Npts)
+    Cells.SetCells(Npts,ids_vtk)
 
     if color is None:
+        [[128, 128, 128]]*len(coords)
 
-        map(append_coords, coords)
-        map(append_color, [[128, 128, 128]]*len(coords))
+    size = np.shape(color)
+    if len(size)==1:
+        color = np._c[color, color, color]
 
-    else:
-        size = np.shape(color)
-        if len(size)==1:
-           map(append_coords, coords)
-           map(append_color, np._c[color, color, color])
-        else:
-            map(append_coords, coords)
-            map(append_color, color)
+    color_vtk = numpy_to_vtk(
+            np.ascontiguousarray(color, dtype=get_vtk_to_numpy_typemap()[VTK_UNSIGNED_CHAR]),
+            deep=True
+        )
 
+    color_vtk.SetName("colors")
 
     PolyData = vtkPolyData()
     PolyData.SetPoints(Points)
-    PolyData.SetVerts(Vertices)
-    PolyData.GetPointData().SetScalars(Colors)
-    PolyData.GetPointData().SetActiveScalars("colors")
+    PolyData.SetVerts(Cells)
+    PolyData.GetPointData().SetScalars(color_vtk)
 
     return PolyData
 
