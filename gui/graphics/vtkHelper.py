@@ -7,6 +7,7 @@ from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
 from vtk.util.numpy_support import get_numpy_array_type, create_vtk_array, get_vtk_array_type, numpy_to_vtkIdTypeArray
 from vtk.util.numpy_support import get_vtk_to_numpy_typemap
 from vtk import vtkPoints, vtkCellArray, vtkIdTypeArray, vtkUnsignedCharArray, vtkPolyData, vtkPolyDataMapper, vtkActor
+from vtk import vtkRenderer, vtkRenderWindow, vtkRenderWindowInteractor
 from vtk import VTK_POINTS, VTK_FLOAT, VTK_CHAR, VTK_UNSIGNED_CHAR
 
 def polydata_from_numpy(coords, color):
@@ -37,7 +38,8 @@ def polydata_from_numpy(coords, color):
 
     size = np.shape(color)
     if len(size)==1:
-        color = np._c[color, color, color]
+        color = [128]*len(coords)
+        color = np.c_[color, color, color]
 
     color_vtk = numpy_to_vtk(
             np.ascontiguousarray(color, dtype=get_vtk_to_numpy_typemap()[VTK_UNSIGNED_CHAR]),
@@ -64,3 +66,17 @@ def actor_from_polydata(PolyData):
     actor.SetMapper(mapper)
     actor.GetProperty().SetPointSize(2)
     return actor
+
+
+def display_from_actor(actor):
+    renderer = vtkRenderer()
+    renderWindow = vtkRenderWindow()
+    renderWindow.AddRenderer(renderer)
+
+    renderer.AddActor(actor)
+    # enable user interface interactor
+    iren = vtkRenderWindowInteractor()
+    iren.SetRenderWindow(renderWindow)
+    iren.Initialize()
+    renderWindow.Render()
+    iren.Start()
